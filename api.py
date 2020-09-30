@@ -6,11 +6,7 @@ class API():
 
     def __call__(self, environ, start_response):
         """
-        Each time a client makes an HTTP request, this function
-        will (must) be called by a compatable WSGI HTTP Server
-        --------------------------------------------------------
-        environment: a dictionary with environment variables
-        start_response: a call after function used to send HTTP statuses and HTTP headers to the server
+        Each time a client makes an HTTP request, this function will (must) be called by a compatable WSGI HTTP Server
         """
         request = Request(environ)
 
@@ -19,26 +15,31 @@ class API():
         return response(environ, start_response)
 
     def route(self, path):
-        """
-        This method is a decorator that accepts a path and wraps the handlers
-        --------------------------------------------------------------------
-        path: the path to the specified directory
-        """
         def wrapper(handler):
             self.routes[path] = handler
+            print(handler)
             return handler
         
         return wrapper
 
     def request_handler(self, request):
-        """
-        This method will handle the request from the client
-        ---------------------------------------------------
-        request: the request from the client
-        """
-        user_agent = request.environ.get("HTTP_USER_AGENT", "No User Agent Found") #identifies the application, OS, vender, and/or version of the requesting user agent
-
         response = Response()
-        response.text = f"Response from server, {user_agent}"
 
+        handler = self.lookup_handler(request.path)
+
+        if handler != None:
+            handler(request, response)
+        else:
+            self.default_response(response)
+            return response
+        
         return response
+
+    def lookup_handler(self, request_path):
+        for path, handler in self.routes.items():
+            if path == request_path:
+                return handler
+
+    def default_response(self, response):
+        response.status_code = 404
+        response.text = "Not found."
