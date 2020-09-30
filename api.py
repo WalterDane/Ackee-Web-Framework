@@ -2,7 +2,7 @@ from webob import Request, Response
 
 class API():
     def __init__(self):
-        self.routes = {} #store the paths as keys and handlers as values
+        self.routes = {} #store the path request as keys and handlers (function references) as values
 
     def __call__(self, environ, start_response):
         """
