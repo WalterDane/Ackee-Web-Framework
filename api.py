@@ -1,6 +1,9 @@
+import inspect
+
 from webob import Request, Response
 from parse import parse
-import inspect
+from requests import Session as RequestsSession
+from wsgiadapter import WSGIAdapter as RequestsWSGIAdapter
 
 class API():
     def __init__(self):
@@ -16,9 +19,13 @@ class API():
 
         return response(environ, start_response)
 
+    def test_session(self, base_url="http://testserver"):
+        session = RequestsSession()
+        session.mount(prefix=base_url, adapter=RequestsWSGIAdapter(self))
+        return session
+
     def route(self, path):
         def wrapper(handler):
-            #print(handler)
             if path in self.routes:
                 raise AssertionError("Sorry, the route already exists")
             else:
