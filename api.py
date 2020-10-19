@@ -1,5 +1,4 @@
 import inspect
-
 from webob import Request, Response
 from parse import parse
 from requests import Session as RequestsSession
@@ -7,15 +6,12 @@ from wsgiadapter import WSGIAdapter as RequestsWSGIAdapter
 
 class API():
     def __init__(self):
-        self.routes = {} #store the path request as keys and handlers (function references) as values
+        self.routes = {} #paths are the keys and handlers (functions or classes) are the values
 
-    def __call__(self, environ, start_response):
-        """
-        Each time a client makes an HTTP request, this function will (must) be called by a compatable WSGI HTTP Server
-        """
+    def __call__(self, environ, start_response): #Compatible WSGI server will call for each client HTTP request. 
         request = Request(environ)
 
-        response = self.request_handler(request)
+        response = self.handle_client_request(request)
 
         return response(environ, start_response)
 
@@ -25,40 +21,47 @@ class API():
         return session
 
     def route(self, path):
+        if path in self.routes:
+            raise AssertionError("Failed. Such a route already exists.")
+
         def wrapper(handler):
-            if path in self.routes:
-                raise AssertionError("Sorry, the route already exists")
-            else:
-                self.routes[path] = handler
-                return handler
+            self.routes[path] = handler
+            return handler
 
         return wrapper
 
-    def lookup_handler(self, request_path):
-        for path, handler in self.routes.items():
-            parse_result = parse(path, request_path)
-            if parse_result != None:
-                return handler, parse_result.named
-        
-        return None, None
-
-    def request_handler(self, request):
+    def handle_client_request(self, request):
         response = Response()
 
         handler, kwargs = self.lookup_handler(request_path=request.path)
 
-        if handler != None:
-            if inspect.isclass(handler):
-                handler = getattr(handler(), request.method.lower(), None)
-                if handler == None:
-                    raise AttributeError("Method not allowed", request.method)
-    
-            handler(request, response, **kwargs)
-        else:
+        if handler is None:
             self.default_response(response)
         
+        if handler is not None:
+            if inspect.isclass(handler):
+                handler_method = self.get_class_method(handler, request)
+                if handler_method is None:
+                    raise AttributeError("Method not allowed", request.method)
+                handler_method(request, response, **kwargs)
+            else:
+                handler(request, response, **kwargs)
+        
         return response
+
+    def lookup_handler(self, request_path):
+        for path, handler in self.routes.items():
+            parse_result = parse(path, request_path)
+            if parse_result is not None:
+                return handler, parse_result.named
+        
+        return None, None
 
     def default_response(self, response):
         response.status_code = 404
         response.text = "Requested path not found."
+
+    def get_class_method(self, handler, request):
+        handler_method = getattr(handler(),request.method.lower(), None)
+        
+        return handler_method
