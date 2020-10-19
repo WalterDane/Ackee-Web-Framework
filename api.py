@@ -4,7 +4,7 @@ from parse import parse
 from requests import Session as RequestsSession
 from wsgiadapter import WSGIAdapter as RequestsWSGIAdapter
 
-class API():
+class API:
     def __init__(self):
         self.routes = {} #paths are the keys and handlers (functions or classes) are the values
 
@@ -21,14 +21,17 @@ class API():
         return session
 
     def route(self, path):
-        if path in self.routes:
-            raise AssertionError("Failed. Such a route already exists.")
-
         def wrapper(handler):
             self.routes[path] = handler
             return handler
 
         return wrapper
+
+    def add_route(self, path, handler):
+        if path in self.routes:
+            raise AssertionError("Failed. Such a route already exists.")
+
+        self.routes[path] = handler
 
     def handle_client_request(self, request):
         response = Response()
@@ -43,6 +46,7 @@ class API():
                 handler_method = self.get_class_method(handler, request)
                 if handler_method is None:
                     raise AttributeError("Method not allowed", request.method)
+                
                 handler_method(request, response, **kwargs)
             else:
                 handler(request, response, **kwargs)
