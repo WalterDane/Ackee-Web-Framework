@@ -1,12 +1,19 @@
 import inspect
+import os
+
 from webob import Request, Response
 from parse import parse
 from requests import Session as RequestsSession
 from wsgiadapter import WSGIAdapter as RequestsWSGIAdapter
+from jinja2 import Environment, FileSystemLoader
 
 class API:
-    def __init__(self):
+    def __init__(self, templates_directory="templates"):
         self.routes = {} #paths are the keys and handlers (functions or classes) are the values
+
+        self.templates_environment = Environment(
+            loader=FileSystemLoader(os.path.abspath(templates_directory))
+        )
 
     def __call__(self, environ, start_response): #Compatible WSGI server will call for each client HTTP request. 
         request = Request(environ)
@@ -15,11 +22,17 @@ class API:
 
         return response(environ, start_response)
 
+    """
+    TEST CLIENT
+    """
     def test_session(self, base_url="http://testserver"):
         session = RequestsSession()
         session.mount(prefix=base_url, adapter=RequestsWSGIAdapter(self))
         return session
 
+    """
+    ROUTING
+    """
     def route(self, path):
         def wrapper(handler):
             self.routes[path] = handler
@@ -33,6 +46,18 @@ class API:
 
         self.routes[path] = handler
 
+    """
+    TEMPLATING
+    """
+    def get_template(self, template_name, context=None):
+        if context is None: 
+            context = {} #dangerous to set mutable object (dict) as a default value ^
+        
+        return self.templates_environment.get_template(template_name).render(**context)
+
+    """
+    HANDLING
+    """
     def handle_client_request(self, request):
         response = Response()
 
@@ -52,6 +77,11 @@ class API:
                 handler(request, response, **kwargs)
         
         return response
+    
+    def get_class_method(self, handler, request):
+        handler_method = getattr(handler(),request.method.lower(), None)
+        
+        return handler_method
 
     def lookup_handler(self, request_path):
         for path, handler in self.routes.items():
@@ -61,11 +91,9 @@ class API:
         
         return None, None
 
+    """
+    RESPONSES
+    """
     def default_response(self, response):
         response.status_code = 404
         response.text = "Requested path not found."
-
-    def get_class_method(self, handler, request):
-        handler_method = getattr(handler(),request.method.lower(), None)
-        
-        return handler_method
