@@ -14,16 +14,9 @@ def home(request, response):
 def about(request, response):
     response.text = "Hello from the ABOUT page"
 
-@app.route("/book")
-class BooksResource:
-    def get(self, request, response):
-        response.text = "Books Page"
-
-    def post(self, request, response):
-        response.text = "Endpoint to create a book"
-    
-    def put(self, request, response):
-        response.text = "Replacing current representation of the target resource"
-
-    def delete(self, request, response):
-        response.text = "Deleting the specified resoue"
+@app.route("/template")
+def template_handler(request, response):
+    response.body = app.get_template(
+        "index.html",
+        context={"name": "Ackee", "title": "Legit framework"}
+    ).encode()
