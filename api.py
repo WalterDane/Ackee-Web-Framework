@@ -9,7 +9,7 @@ from jinja2 import Environment, FileSystemLoader
 from whitenoise import WhiteNoise
 
 class API:
-    def __init__(self, templates_directory="templates"):
+    def __init__(self, templates_directory="templates", static_dir="static"):
         self.routes = {} #paths are the keys and handlers (functions or classes) are the values
 
         self.templates_environment = Environment(
@@ -18,10 +18,10 @@ class API:
 
         self.exception_handler = None
 
-        self.whitenoise = WhiteNoise(self.wsgi_application, root=static_dir)
+        self.whitenoise = WhiteNoise(self.wsgi_application, root=static_dir) #wrap wsgi application to serve static files
 
     def __call__(self, environ, start_response): #Compatible WSGI server will call for each client HTTP request. 
-        return self.wsgi_application(environ, start_response)
+       return self.whitenoise(environ, start_response)
 
     def wsgi_application(self, environ, start_response):
         request = Request(environ)
