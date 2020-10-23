@@ -6,6 +6,7 @@ from parse import parse
 from requests import Session as RequestsSession
 from wsgiadapter import WSGIAdapter as RequestsWSGIAdapter
 from jinja2 import Environment, FileSystemLoader
+from whitenoise import WhiteNoise
 
 class API:
     def __init__(self, templates_directory="templates"):
@@ -15,7 +16,14 @@ class API:
             loader=FileSystemLoader(os.path.abspath(templates_directory))
         )
 
+        self.exception_handler = None
+
+        self.whitenoise = WhiteNoise(self.wsgi_application, root=static_dir)
+
     def __call__(self, environ, start_response): #Compatible WSGI server will call for each client HTTP request. 
+        return self.wsgi_application(environ, start_response)
+
+    def wsgi_application(self, environ, start_response):
         request = Request(environ)
 
         response = self.handle_client_request(request)
@@ -63,19 +71,24 @@ class API:
 
         handler, kwargs = self.lookup_handler(request_path=request.path)
 
-        if handler is None:
-            self.default_response(response)
-        
-        if handler is not None:
-            if inspect.isclass(handler):
-                handler_method = self.get_class_method(handler, request)
-                if handler_method is None:
-                    raise AttributeError("Method not allowed", request.method)
-                
-                handler_method(request, response, **kwargs)
+        try:
+            if handler is not None:
+                if inspect.isclass(handler):
+                    handler_method = self.get_class_method(handler, request)
+                    if handler_method is None:
+                        raise AttributeError("Method not allowed", request.method)
+                    
+                    handler_method(request, response, **kwargs)
+                else:
+                    handler(request, response, **kwargs)
             else:
-                handler(request, response, **kwargs)
-        
+                self.default_response(response)
+        except Exception as exception:
+            if self.exception_handler is None:
+                raise exception
+            else:
+                self.exception_handler(request, response, exception)
+
         return response
     
     def get_class_method(self, handler, request):
@@ -90,6 +103,9 @@ class API:
                 return handler, parse_result.named
         
         return None, None
+    
+    def add_exception_handler(self, exception_handler):
+        self.exception_handler = exception_handler
 
     """
     RESPONSES
