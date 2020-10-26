@@ -1,14 +1,7 @@
 from api import API
-
-"""
-Exceptions
-"""
-def custom_exception_handler(request, response, exception_cls):
-    response.text = str(exception_cls)
+from middleware import Middleware
 
 app = API() #calling instance of API class is the responsibility of the web server
-
-app.add_exception_handler(custom_exception_handler)
 
 """
 Directories
@@ -38,3 +31,11 @@ def template_handler(request, response):
 @app.route("/exception")
 def throw_handler_exception(request, response):
     raise AssertionError("This handler should not be used")
+
+"""
+Exceptions
+"""
+def custom_exception_handler(request, response, exception_cls):
+    response.text = str(exception_cls)
+
+app.add_exception_handler(custom_exception_handler)
