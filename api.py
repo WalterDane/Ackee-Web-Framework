@@ -45,6 +45,11 @@ class API:
     TEST CLIENT
     """
     def test_session(self, base_url="http://testserver"):
+        """
+        Creates a test client associated with the given a url.
+        The test session will be a requests session to be able to
+        emulate a client in the browser.
+        """
         session = RequestsSession()
         session.mount(prefix=base_url, adapter=RequestsWSGIAdapter(self))
         return session
@@ -52,25 +57,36 @@ class API:
     """
     ROUTING
     """
+    def add_route(self, path, handler):
+        """
+        Adds a route which is a key-value pair.
+        The key is the url path and the value is either
+        a function handler or a class-based route.
+        """
+        if path in self.routes:
+            raise AssertionError("Failed. Such a route already exists.")
+
+        self.routes[path] = handler
+
     def route(self, path):
+        """
+        Adds a route via a decorator function.
+        """
         def wrapper(handler):
             self.routes[path] = handler
             return handler
 
         return wrapper
 
-    def add_route(self, path, handler):
-        if path in self.routes:
-            raise AssertionError("Failed. Such a route already exists.")
-
-        self.routes[path] = handler
-
     """
     TEMPLATING
     """
     def get_template(self, template_name, context=None):
+        """
+        Gets the template based on the template name
+        """
         if context is None: 
-            context = {} #dangerous to set mutable object (dict) as a default value ^
+            context = {}
         
         return self.templates_environment.get_template(template_name).render(**context)
 
@@ -78,6 +94,9 @@ class API:
     HANDLING
     """
     def handle_request(self, request):
+        """
+        Handles the client request, which is an webob object.
+        """
         response = Response()
 
         handler, kwargs = self.lookup_handler(request_path=request.path)
@@ -103,11 +122,18 @@ class API:
         return response
     
     def get_class_method(self, handler, request):
+        """
+        Gets the method associated with the requested path.
+        This function is used with class based routes.
+        """
         handler_method = getattr(handler(),request.method.lower(), None)
         
         return handler_method
 
     def lookup_handler(self, request_path):
+        """
+        Finds the function handler associated with the requested path
+        """
         for path, handler in self.routes.items():
             parse_result = parse(path, request_path)
             if parse_result is not None:
@@ -116,6 +142,9 @@ class API:
         return None, None
     
     def add_exception_handler(self, exception_handler):
+        """
+        Adds a function to the application that handle exceptions
+        """
         self.exception_handler = exception_handler
 
     """
