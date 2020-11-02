@@ -20,13 +20,26 @@ class API:
 
         self.exception_handler = None
 
-        #self.whitenoise = WhiteNoise(self.wsgi_application, root=static_dir) #wrap wsgi application to serve static files
+        self.whitenoise = WhiteNoise(self.wsgi_application, root=static_dir) #wrap wsgi application to serve static files
         
         self.middleware = Middleware(self)
 
-    def __call__(self, environ, start_response): #Compatible WSGI server will call for each client HTTP request. 
+    def __call__(self, environ, start_response):
+       """
+       Compatible WSGI server will call for each client HTTP request. 
+       Request for static files are treated differently from other request.
+       """
+       
        print("Callable was triggered due to request from client application at time: " + str(time.time()))
-       return self.middleware(environ, start_response)
+       
+       path_info = environ["PATH_INFO"]
+
+       if path_info.startswith("/static"):
+           environ["PATH_INFO"] = path_info[len("/static"):]
+           print(environ["PATH_INFO"])
+           return self.whitenoise(environ, start_response)
+       else:
+           return self.middleware(environ, start_response)
 
     def wsgi_application(self, environ, start_response):
         request = Request(environ)
